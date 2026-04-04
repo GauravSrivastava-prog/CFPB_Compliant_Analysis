@@ -1,0 +1,193 @@
+:root {
+    /* Gruvbox Noir Palette */
+    --bg-dark: #1d2021;
+    --bg-card: #282828;
+    --fg-main: #ebdbb2;
+    --red: #fb4934;
+    --green: #b8bb26;
+    --yellow: #fabd2f;
+    --blue: #83a598;
+    --purple: #d3869b;
+    --aqua: #8ec07c;
+    --orange: #fe8019;
+    --border-dark: #000000;
+    
+    --shadow-offset: 6px;
+    --border-width: 4px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--fg-main);
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 2rem;
+    overflow-x: hidden;
+    background-image: radial-gradient(#3c3836 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.dashboard-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Illustration UI Trend Core Class */
+.ill-border {
+    border: var(--border-width) solid var(--border-dark);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px rgba(0,0,0,1);
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ill-border:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: calc(var(--shadow-offset) + 3px) calc(var(--shadow-offset) + 3px) 0px rgba(0,0,0,1);
+}
+
+.header-card {
+    background-color: var(--bg-card);
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-card h1 {
+    font-size: 2.5rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--fg-main);
+    text-shadow: 2px 2px 0px var(--border-dark);
+}
+
+.subtitle {
+    color: var(--aqua);
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.header-badge {
+    background-color: var(--red);
+    color: #000;
+    padding: 0.5rem 1.5rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+    border-radius: 50px;
+    animation: pulse 2s infinite;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-gap: 2rem;
+}
+
+.card {
+    background-color: var(--bg-card);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.card h3 {
+    font-size: 1.1rem;
+    color: #a89984;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    z-index: 2;
+}
+
+.card h1 {
+    font-size: 3rem;
+    color: var(--fg-main);
+    z-index: 2;
+}
+
+/* Grid Binders */
+.span-1 { grid-column: span 1; }
+.span-2 { grid-column: span 2; }
+.span-full { grid-column: span 4; }
+
+/* Thematic Colors for Specific Cards */
+.accent-orange { background-color: var(--orange); }
+.accent-orange h3, .accent-orange h1 { color: #282828 !important; text-shadow: 0px 0px transparent; }
+
+.accent-yellow { background-color: var(--yellow); }
+.accent-yellow h3, .accent-yellow h1 { color: #282828 !important; }
+
+.accent-aqua { background-color: var(--aqua); }
+.accent-aqua h3, .accent-aqua h1 { color: #282828 !important; }
+
+.accent-blue { background-color: var(--blue); }
+.accent-blue h3, .accent-blue h1 { color: #282828 !important; }
+
+.bg-dark { background-color: #1a1a1a; }
+
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+}
+
+.styled-list {
+    list-style: none;
+    margin-top: 1rem;
+}
+
+.styled-list li {
+    padding: 1rem;
+    margin-bottom: 0.8rem;
+    background-color: #3c3836;
+    border: 3px solid var(--border-dark);
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--fg-main);
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.styled-list li::before {
+    content: '';
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    background-color: var(--purple);
+    border-radius: 50%;
+    margin-right: 15px;
+    border: 2px solid #000;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Responsiveness */
+@media (max-width: 1024px) {
+    .grid-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+    .span-2, .span-full {
+        grid-column: span 1;
+    }
+}

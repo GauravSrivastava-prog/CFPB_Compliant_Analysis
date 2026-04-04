@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFPB Noir Analytics Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <header class="header-card ill-border">
+            <div class="title-container">
+                <h1>CFPB Intelligence</h1>
+                <p class="subtitle">Consumer Complaint NLP Visualizations & Forecasting</p>
+            </div>
+            <div class="header-badge ill-border">LIVE</div>
+        </header>
+
+        <main class="grid-container">
+            <!-- Metric 1 -->
+            <div class="card ill-border span-1">
+                <h3>Total Records Investigated</h3>
+                <h1 id="total-records">--</h1>
+            </div>
+            
+            <!-- Metric 2 -->
+            <div class="card ill-border span-1 accent-orange">
+                <h3>Narrative Completion</h3>
+                <h1 id="completion-rate">--%</h1>
+            </div>
+
+            <!-- Metric 3 -->
+            <div class="card ill-border span-1 accent-yellow">
+                <h3>Average Word Count</h3>
+                <h1 id="avg-words">--</h1>
+            </div>
+
+            <!-- Metric 4 -->
+            <div class="card ill-border span-1 accent-aqua">
+                <h3>Model Precision</h3>
+                <h1 id="model-accuracy">--%</h1>
+            </div>
+
+            <!-- Chart Card 1 -->
+            <div class="card ill-border chart-card span-2">
+                <h3>Complaint Growth Dynamics</h3>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart Card 2 -->
+            <div class="card ill-border chart-card span-2 bg-dark">
+                <h3>High Voltage Core Topics</h3>
+                <ul id="topic-list" class="styled-list">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
+
+            <!-- Chart Card 3 -->
+            <div class="card ill-border chart-card span-full accent-blue">
+                <h3>Categorical Volatility</h3>
+                <div class="chart-container">
+                    <canvas id="productChart"></canvas>
+                </div>
+            </div>
+
+        </main>
+    </div>
+    
+    <script src="main.js"></script>
+</body>
+</html>
