@@ -4,11 +4,6 @@ venv/
 env/
 .env
 
-# Python Cache & Checkpoints
-__pycache__/
-*.py[cod]
-*$py.class
-.ipynb_checkpoints/
 
 # Large Data Files (GitHub has a 100MB strict file size limit)
 *.csv
