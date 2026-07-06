@@ -43,18 +43,18 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
 
-    .ill-card {
-        background-color: var(--card-bg);
-        border: 4px solid var(--black-border);
-        border-radius: 12px;
-        padding: 30px 24px;
-        box-shadow: 8px 8px 0px rgba(0,0,0,1);
-        margin-bottom: 30px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    .ill-card, div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: var(--card-bg) !important;
+        border: 4px solid var(--black-border) !important;
+        border-radius: 12px !important;
+        padding: 30px 24px !important;
+        box-shadow: 8px 8px 0px rgba(0,0,0,1) !important;
+        margin-bottom: 30px !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
     }
-    .ill-card:hover {
-        transform: translate(-3px, -3px);
-        box-shadow: 11px 11px 0px rgba(0,0,0,1);
+    .ill-card:hover, div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        transform: translate(-3px, -3px) !important;
+        box-shadow: 11px 11px 0px rgba(0,0,0,1) !important;
     }
     
     .kpi-container {
@@ -104,9 +104,71 @@ st.markdown("""
 # ----------------- DATA LOADING -----------------
 @st.cache_data
 def load_data():
-    file_path = r'd:\\idk\\stats\\dataset\\complaints.csv'
+    import os
+    import zipfile
+    import io
+    # Try local paths first (CSV and ZIP), then download from CFPB
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+    
+    df = None
+    
+    # Check for CSV files
+    csv_paths = [
+        os.path.join(project_root, 'dataset', 'complaints.csv'),
+        os.path.join(project_root, 'complaints.csv'),
+        os.path.join(script_dir, 'complaints.csv'),
+    ]
+    for fp in csv_paths:
+        if os.path.exists(fp):
+            df = pd.read_csv(fp, low_memory=False, nrows=80000)
+            break
+    
+    # Check for ZIP files if no CSV found
+    if df is None:
+        zip_paths = [
+            os.path.join(project_root, 'dataset', 'complaints.csv.zip'),
+            os.path.join(project_root, 'complaints.csv.zip'),
+        ]
+        for zp in zip_paths:
+            if os.path.exists(zp):
+                with zipfile.ZipFile(zp, 'r') as z:
+                    csv_name = [n for n in z.namelist() if n.endswith('.csv')][0]
+                    with z.open(csv_name) as f:
+                        df = pd.read_csv(f, low_memory=False, nrows=80000)
+                break
+    
+    if df is None:
+        # Download from CFPB public dataset
+        st.info("📥 No local dataset found. Downloading from CFPB (this may take several minutes)...")
+        import ssl
+        import urllib.request
+        
+        try:
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            
+            url = "https://files.consumerfinance.gov/ccdb/complaints.csv.zip"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, context=ssl_ctx, timeout=600) as resp:
+                raw = resp.read()
+            
+            with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                csv_name = [n for n in z.namelist() if n.endswith('.csv')][0]
+                with z.open(csv_name) as f:
+                    df = pd.read_csv(f, low_memory=False, nrows=80000)
+            
+            # Cache locally for future runs
+            cache_path = os.path.join(project_root, 'dataset')
+            os.makedirs(cache_path, exist_ok=True)
+            df.to_csv(os.path.join(cache_path, 'complaints.csv'), index=False)
+            st.success("✅ Dataset downloaded and cached locally!")
+        except Exception as download_err:
+            st.error(f"Failed to download dataset: {download_err}")
+            return pd.DataFrame()
+    
     try:
-        df = pd.read_csv(file_path, low_memory=False, nrows=80000)
         df.columns = df.columns.str.lower().str.replace(' ', '_').str.replace('-', '_').str.replace('?', '')
         
         df['date_received'] = pd.to_datetime(df['date_received'], errors='coerce')
@@ -211,147 +273,138 @@ if app_mode == "Industrial Analytics":
     with tab1:
         colA, colB = st.columns([1.5, 1])
         with colA:
-            st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-            st.markdown("### Ecosystem Taxonomy Tracker")
-            if 'issue' in df.columns:
-                tree_data = df.groupby(['product', 'issue']).size().reset_index(name='count')
-                tree_data = tree_data[tree_data['count'] > 300]
-                fig_tree = px.treemap(tree_data, path=[px.Constant("All Nodes"), 'product', 'issue'], values='count', color='count', color_continuous_scale='Inferno')
-                fig_tree.update_layout(margin=dict(t=30, l=0, r=0, b=0), **PLOTLY_THEME)
-                st.plotly_chart(fig_tree, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("### Ecosystem Taxonomy Tracker")
+                if 'issue' in df.columns:
+                    tree_data = df.groupby(['product', 'issue']).size().reset_index(name='count')
+                    tree_data = tree_data[tree_data['count'] > 300]
+                    fig_tree = px.treemap(tree_data, path=[px.Constant("All Nodes"), 'product', 'issue'], values='count', color='count', color_continuous_scale='Inferno')
+                    fig_tree.update_layout(margin=dict(t=30, l=0, r=0, b=0), **PLOTLY_THEME)
+                    st.plotly_chart(fig_tree, use_container_width=True)
         with colB:
-            st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-            st.markdown("### Reaction Delays")
-            fig_donut = px.pie(df, names='timely_response_bin', hole=0.5, color_discrete_sequence=['#8ec07c', '#fb4934'])
-            fig_donut.update_layout(margin=dict(t=10, l=10, r=10, b=10), **PLOTLY_THEME)
-            st.plotly_chart(fig_donut, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("### Reaction Delays")
+                fig_donut = px.pie(df, names='timely_response_bin', hole=0.5, color_discrete_sequence=['#8ec07c', '#fb4934'])
+                fig_donut.update_layout(margin=dict(t=10, l=10, r=10, b=10), **PLOTLY_THEME)
+                st.plotly_chart(fig_donut, use_container_width=True)
 
     with tab2:
-        st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-        st.markdown("### Entity Subjection Ranking")
-        company_counts = df['company'].value_counts().head(12).reset_index()
-        company_counts.columns = ['Company', 'Count']
-        fig_bar3 = px.bar(company_counts, x='Count', y='Company', orientation='h', color='Count', color_continuous_scale='Purpor')
-        fig_bar3.update_layout(height=400, **PLOTLY_THEME)
-        st.plotly_chart(fig_bar3, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### Entity Subjection Ranking")
+            company_counts = df['company'].value_counts().head(12).reset_index()
+            company_counts.columns = ['Company', 'Count']
+            fig_bar3 = px.bar(company_counts, x='Count', y='Company', orientation='h', color='Count', color_continuous_scale='Purpor')
+            fig_bar3.update_layout(height=400, **PLOTLY_THEME)
+            st.plotly_chart(fig_bar3, use_container_width=True)
 
-        st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-        st.markdown("### Temporal Velocity Stream")
-        df_time = df.groupby('month_year').size().reset_index(name='Volume').sort_values('month_year')
-        if len(df_time) > 3:
-            fig_line = px.area(df_time, x='month_year', y='Volume', markers=True)
-            fig_line.update_traces(line_color='#fabd2f', marker=dict(size=8, color='#fb4934'), fillcolor='rgba(250, 189, 47, 0.4)')
-            fig_line.update_layout(height=450, **PLOTLY_THEME)
-            st.plotly_chart(fig_line, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### Temporal Velocity Stream")
+            df_time = df.groupby('month_year').size().reset_index(name='Volume').sort_values('month_year')
+            if len(df_time) > 3:
+                fig_line = px.area(df_time, x='month_year', y='Volume', markers=True)
+                fig_line.update_traces(line_color='#fabd2f', marker=dict(size=8, color='#fb4934'), fillcolor='rgba(250, 189, 47, 0.4)')
+                fig_line.update_layout(height=450, **PLOTLY_THEME)
+                st.plotly_chart(fig_line, use_container_width=True)
 
     with tab3:
         colE, colF = st.columns(2)
         with colE:
-            st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-            st.markdown("### Syntax Complexity Spread")
-            fig_viol = go.Figure(go.Violin(y=df[df['complaint_word_count'] > 0]['complaint_word_count'], box_visible=True, line_color='#83a598', fillcolor='#83a598', opacity=0.7))
-            fig_viol.update_layout(yaxis_range=[0, 800], height=350, **PLOTLY_THEME)
-            st.plotly_chart(fig_viol, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("### Syntax Complexity Spread")
+                fig_viol = go.Figure(go.Violin(y=df[df['complaint_word_count'] > 0]['complaint_word_count'], box_visible=True, line_color='#83a598', fillcolor='#83a598', opacity=0.7))
+                fig_viol.update_layout(yaxis_range=[0, 800], height=350, **PLOTLY_THEME)
+                st.plotly_chart(fig_viol, use_container_width=True)
         with colF:
-            st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-            st.markdown("### Core Sentiment Analysis")
-            fig_hist = px.histogram(df[df['has_narrative']==1].head(1000), x="sentiment_polarity", nbins=50, color_discrete_sequence=['#d3869b'])
-            fig_hist.update_layout(height=350, **PLOTLY_THEME)
-            st.plotly_chart(fig_hist, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("### Core Sentiment Analysis")
+                fig_hist = px.histogram(df[df['has_narrative']==1].head(1000), x="sentiment_polarity", nbins=50, color_discrete_sequence=['#d3869b'])
+                fig_hist.update_layout(height=350, **PLOTLY_THEME)
+                st.plotly_chart(fig_hist, use_container_width=True)
 
     with tab4:
-        st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-        st.markdown("### Systemic Linear Correlations")
-        numeric_cols = df[['complaint_word_count', 'timely_response_bin', 'consumer_disputed_bin', 'has_narrative', 'response_delay_days', 'sentiment_polarity']].fillna(0)
-        corr = numeric_cols.corr()
-        fig_heatmap = px.imshow(corr, text_auto=".2f", color_continuous_scale='RdBu_r', zmin=-1, zmax=1)
-        fig_heatmap.update_layout(height=450, **PLOTLY_THEME)
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### Systemic Linear Correlations")
+            numeric_cols = df[['complaint_word_count', 'timely_response_bin', 'consumer_disputed_bin', 'has_narrative', 'response_delay_days', 'sentiment_polarity']].fillna(0)
+            corr = numeric_cols.corr()
+            fig_heatmap = px.imshow(corr, text_auto=".2f", color_continuous_scale='RdBu_r', zmin=-1, zmax=1)
+            fig_heatmap.update_layout(height=450, **PLOTLY_THEME)
+            st.plotly_chart(fig_heatmap, use_container_width=True)
 
     with tab5:
-        st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-        st.markdown("## Live Statistical Reasoning Framework")
-        colY, colZ = st.columns(2)
-        with colY:
-            st.markdown("### 1. T-Test Diagnostics")
-            if 'consumer_disputed_bin' in df.columns:
-                d1 = df[df['consumer_disputed_bin']==1]['complaint_word_count']
-                d0 = df[df['consumer_disputed_bin']==0]['complaint_word_count']
-                if len(d1)>0 and len(d0)>0:
-                    t_stat, pt = stats.ttest_ind(d1, d0, equal_var=False)
-                    st.write(f"**T-Stat Computed**: `{t_stat:.4f}`")
-                    st.write(f"**P-Value Tensor**: `{pt:.4e}`")
-                    if pt < 0.05: st.markdown("<div class='styled-alert alert-purple'>Verdict: Reject Null. Depth dictates dispute frequency.</div>", unsafe_allow_html=True)
-                    else: st.markdown("<div class='styled-alert alert-red'>Verdict: Accept Null. Depth invariant.</div>", unsafe_allow_html=True)
-        with colZ:
-            st.markdown("### 2. Chi-Square Testing")
-            if 'product' in df.columns and 'consumer_disputed_bin' in df.columns:
-                crosstab = pd.crosstab(df['product'], df['consumer_disputed_bin'])
-                chi2, pc, dof, ex = stats.chi2_contingency(crosstab)
-                st.write(f"**Chi-Square Score**: `{chi2:.4f}`")
-                st.write(f"**P-Value Tensor**: `{pc:.4e}`")
-                if pc < 0.05: st.markdown("<div class='styled-alert alert-green'>Verdict: Reject Null. Products correlate to pipeline interruptions.</div>", unsafe_allow_html=True)
-                else: st.markdown("<div class='styled-alert alert-red'>Verdict: Accept Null. Flat matrix.</div>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin:2rem 0;'>", unsafe_allow_html=True)
-        st.markdown("### 3. ANOVA Recursive Array")
-        top_5 = df['company'].value_counts().head(5).index
-        df_anova = df[df['company'].isin(top_5)]
-        if 'response_delay_days' in df_anova.columns:
-            model_anova = ols('response_delay_days ~ C(company)', data=df_anova).fit()
-            tab_anova = sm.stats.anova_lm(model_anova, typ=2)
-            st.dataframe(tab_anova.style.format("{:.4f}"))
-            if tab_anova['PR(>F)'][0] < 0.05: st.markdown("<div class='styled-alert alert-purple'>Verdict: ANOVA confirms severe inconsistencies among Top 5.</div>", unsafe_allow_html=True)
-            else: st.markdown("<div class='styled-alert alert-green'>Verdict: ANOVA rejects inconsistencies.</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("## Live Statistical Reasoning Framework")
+            colY, colZ = st.columns(2)
+            with colY:
+                st.markdown("### 1. T-Test Diagnostics")
+                if 'consumer_disputed_bin' in df.columns:
+                    d1 = df[df['consumer_disputed_bin']==1]['complaint_word_count']
+                    d0 = df[df['consumer_disputed_bin']==0]['complaint_word_count']
+                    if len(d1)>0 and len(d0)>0:
+                        t_stat, pt = stats.ttest_ind(d1, d0, equal_var=False)
+                        st.write(f"**T-Stat Computed**: `{t_stat:.4f}`")
+                        st.write(f"**P-Value Tensor**: `{pt:.4e}`")
+                        if pt < 0.05: st.markdown("<div class='styled-alert alert-purple'>Verdict: Reject Null. Depth dictates dispute frequency.</div>", unsafe_allow_html=True)
+                        else: st.markdown("<div class='styled-alert alert-red'>Verdict: Accept Null. Depth invariant.</div>", unsafe_allow_html=True)
+            with colZ:
+                st.markdown("### 2. Chi-Square Testing")
+                if 'product' in df.columns and 'consumer_disputed_bin' in df.columns:
+                    crosstab = pd.crosstab(df['product'], df['consumer_disputed_bin'])
+                    chi2, pc, dof, ex = stats.chi2_contingency(crosstab)
+                    st.write(f"**Chi-Square Score**: `{chi2:.4f}`")
+                    st.write(f"**P-Value Tensor**: `{pc:.4e}`")
+                    if pc < 0.05: st.markdown("<div class='styled-alert alert-green'>Verdict: Reject Null. Products correlate to pipeline interruptions.</div>", unsafe_allow_html=True)
+                    else: st.markdown("<div class='styled-alert alert-red'>Verdict: Accept Null. Flat matrix.</div>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:2rem 0;'>", unsafe_allow_html=True)
+            st.markdown("### 3. ANOVA Recursive Array")
+            top_5 = df['company'].value_counts().head(5).index
+            df_anova = df[df['company'].isin(top_5)]
+            if 'response_delay_days' in df_anova.columns:
+                model_anova = ols('response_delay_days ~ C(company)', data=df_anova).fit()
+                tab_anova = sm.stats.anova_lm(model_anova, typ=2)
+                st.dataframe(tab_anova.round(4))
+                if tab_anova['PR(>F)'].iloc[0] < 0.05: st.markdown("<div class='styled-alert alert-purple'>Verdict: ANOVA confirms severe inconsistencies among Top 5.</div>", unsafe_allow_html=True)
+                else: st.markdown("<div class='styled-alert alert-green'>Verdict: ANOVA rejects inconsistencies.</div>", unsafe_allow_html=True)
 
 # ----------------- TRUE NLP SIMULATION PAGE -----------------
 elif app_mode == "NLP Prediction Engine":
     st.markdown("<h1>True NLP Deep Engine</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: var(--accent-aqua); font-size: 1.3rem; font-weight: bold;'>TF-IDF Vectorized Text Analysis & Risk Calculation</p>", unsafe_allow_html=True)
 
-    st.markdown("<div class='ill-card'>", unsafe_allow_html=True)
-    with st.form("simulation_submit"):
-        st.markdown("### Semantic Design Parameters")
-        st.markdown("The Engine now actually **reads** your text using a live TF-IDF Matrix and calculates text-blob sentiment to predict the result.")
-        narrative_input = st.text_area("Narrative Injection", "Try typing words like 'fraud', 'scam', 'lawyer' vs 'thank you', 'small issue'...", height=150)
-        
-        colR1, colR2 = st.columns(2)
-        with colR1:
-            st.markdown("*(Product Pipeline ignored. Utilizing raw semantics)*")
-        with colR2:
-            timely_resp = st.radio("Timely Company Defense?", ("Yes", "No"))
-        
-        submitted = st.form_submit_button("Engage NLP Matrix")
-        
-    if submitted and engine:
-        st.markdown("<hr style='margin:1.5rem 0;'>", unsafe_allow_html=True)
-        st.markdown("### NLP Engine Output")
-        
-        # Calculate dynamic injected logic
-        live_sentiment = TextBlob(str(narrative_input)).sentiment.polarity
-        timely_bin = 1 if timely_resp == "Yes" else 0
-        
-        st.write(f"**Processed Semantic Polarity:** `{live_sentiment:.2f}`")
-        
-        # Build strict single-row dataframe for Pipeline
-        sample = pd.DataFrame([{
-            'consumer_complaint_narrative': narrative_input,
-            'sentiment_polarity': live_sentiment,
-            'timely_response_bin': timely_bin
-        }])
-        
-        prediction = engine.predict(sample)[0]
-        probability = engine.predict_proba(sample)[0][1]
-        
-        if prediction == 1:
-            st.markdown(f"<div class='styled-alert alert-red'>HIGH DISPUTE LATENCY DETECTED<br>Estimated Dispute Probability: {probability*100:.1f}%<br><br><i>NLP Vectorizer flagged threatening semantic patterns inside the complaint narrative.</i></div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='styled-alert alert-green'>RESOLUTION PROBABLE<br>Estimated Dispute Probability: {probability*100:.1f}% risk.<br><br><i>NLP Vectorizer determined the text structure denotes a standard, resolvable framework.</i></div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        with st.form("simulation_submit"):
+            st.markdown("### Semantic Design Parameters")
+            st.markdown("The Engine now actually **reads** your text using a live TF-IDF Matrix and calculates text-blob sentiment to predict the result.")
+            narrative_input = st.text_area("Narrative Injection", "Try typing words like 'fraud', 'scam', 'lawyer' vs 'thank you', 'small issue'...", height=150)
+            
+            colR1, colR2 = st.columns(2)
+            with colR1:
+                st.markdown("*(Product Pipeline ignored. Utilizing raw semantics)*")
+            with colR2:
+                timely_resp = st.radio("Timely Company Defense?", ("Yes", "No"))
+            
+            submitted = st.form_submit_button("Engage NLP Matrix")
+            
+        if submitted and engine:
+            st.markdown("<hr style='margin:1.5rem 0;'>", unsafe_allow_html=True)
+            st.markdown("### NLP Engine Output")
+            
+            # Calculate dynamic injected logic
+            live_sentiment = TextBlob(str(narrative_input)).sentiment.polarity
+            timely_bin = 1 if timely_resp == "Yes" else 0
+            
+            st.write(f"**Processed Semantic Polarity:** `{live_sentiment:.2f}`")
+            
+            # Build strict single-row dataframe for Pipeline
+            sample = pd.DataFrame([{
+                'consumer_complaint_narrative': narrative_input,
+                'sentiment_polarity': live_sentiment,
+                'timely_response_bin': timely_bin
+            }])
+            
+            prediction = engine.predict(sample)[0]
+            probability = engine.predict_proba(sample)[0][1]
+            
+            if prediction == 1:
+                st.markdown(f"<div class='styled-alert alert-red'>HIGH DISPUTE LATENCY DETECTED<br>Estimated Dispute Probability: {probability*100:.1f}%<br><br><i>NLP Vectorizer flagged threatening semantic patterns inside the complaint narrative.</i></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='styled-alert alert-green'>RESOLUTION PROBABLE<br>Estimated Dispute Probability: {probability*100:.1f}% risk.<br><br><i>NLP Vectorizer determined the text structure denotes a standard, resolvable framework.</i></div>", unsafe_allow_html=True)
